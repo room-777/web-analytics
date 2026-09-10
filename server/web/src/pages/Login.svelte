@@ -41,7 +41,7 @@
 </div>
 
 <style>
-  .login { max-width: 320px; display: flex; flex-direction: column; gap: 12px; }
+  .login { width: 100%; display: flex; flex-direction: column; gap: 12px; }
   h2 { font: var(--up-type-setting); }
   p { font: var(--up-type-meta); line-height: 1.5; }
   form { display: flex; flex-direction: column; gap: var(--up-space-3); margin-top: 8px; }
