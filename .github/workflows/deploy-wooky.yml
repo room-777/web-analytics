@@ -1,0 +1,59 @@
+name: Deploy wooky web analytics
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: wooky-web-analytics-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to Oracle VM
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_KNOWN_HOSTS: ${{ secrets.VM_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          SSH_DIR="${RUNNER_TEMP}/wooky-ssh"
+          install -d -m 700 "$SSH_DIR"
+
+          printf '%s\n' "$VM_SSH_KEY" > "$SSH_DIR/id_ed25519"
+          chmod 600 "$SSH_DIR/id_ed25519"
+
+          printf '%s\n' "$VM_KNOWN_HOSTS" > "$SSH_DIR/known_hosts"
+          chmod 600 "$SSH_DIR/known_hosts"
+
+          ssh \
+            -i "$SSH_DIR/id_ed25519" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "$VM_USER@$VM_HOST" << 'REMOTE'
+              set -euo pipefail
+
+              cd /srv/glance
+              git pull --ff-only origin main
+
+              docker compose \
+                -f docker-compose.prod.yml \
+                up -d \
+                --build \
+                --remove-orphans
+
+              curl --fail --silent --show-error \
+                http://127.0.0.1:8082/health
+
+              docker compose \
+                -f docker-compose.prod.yml \
+                ps
+          REMOTE
